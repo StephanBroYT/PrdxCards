@@ -6,7 +6,7 @@ import logging
 import datetime
 
 def setup_database():
-    conn = sqlite3.connect("komaru.db")
+    conn = sqlite3.connect("prdx.db")
     c = conn.cursor()
 
     c.execute(
@@ -38,7 +38,7 @@ def setup_database():
 setup_database()
 
 def check_cooldown(user_id: int) -> tuple[bool, str]:
-    conn = sqlite3.connect("komaru.db")
+    conn = sqlite3.connect("prdx.db")
     c = conn.cursor()
     
     c.execute("SELECT last_use FROM cooldowns WHERE user_id = ?", (user_id,))
@@ -73,7 +73,7 @@ def check_cooldown(user_id: int) -> tuple[bool, str]:
 def add_card_to_user(user_id: int, card_id: int) -> bool:
     """Добавляет карточку пользователю"""
     try:
-        conn = sqlite3.connect("komaru.db")
+        conn = sqlite3.connect("prdx.db")
         c = conn.cursor()
 
         money = get_card_by_id(card_id).get("money", 0)
@@ -102,7 +102,7 @@ def add_card_to_user(user_id: int, card_id: int) -> bool:
 def get_user_cards(user_id: int) -> list:
     """Возвращает список ID карточек пользователя"""
     try:
-        with sqlite3.connect("komaru.db") as conn:
+        with sqlite3.connect("prdx.db") as conn:
             c = conn.cursor()
             c.execute("SELECT card_id FROM user_cards WHERE user_id = ?", (user_id,))
             return [card[0] for card in c.fetchall()]
@@ -114,7 +114,7 @@ def get_user_cards(user_id: int) -> list:
 def get_user_money(user_id: int) -> list:
     """Возвращает список ID карточек пользователя"""
     try:
-        with sqlite3.connect("komaru.db") as conn:
+        with sqlite3.connect("prdx.db") as conn:
             c = conn.cursor()
             c.execute("SELECT money FROM users WHERE user_id = ?", (user_id,))
             return [card[0] for card in c.fetchall()]
@@ -126,7 +126,7 @@ def get_user_money(user_id: int) -> list:
 def get_users_id() -> list:
     """Возвращает список ID пользователей"""
     try:
-        with sqlite3.connect("komaru.db") as conn:
+        with sqlite3.connect("prdx.db") as conn:
             c = conn.cursor()
             c.execute("SELECT user_id FROM users")
             return [card[0] for card in c.fetchall()]
@@ -171,7 +171,7 @@ def generate_markup_cards(message):
     return markup
 
 
-def generate_komar(message, bot):
+def generate_prdx(message, bot):
     try:
         can_use, time_left = check_cooldown(message.from_user.id)
         if not can_use:

@@ -5,7 +5,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-komars = ["комар", "комару", "komap", "komaru"]
+prdxs = ["prdx", "парадокс"]
 logging.basicConfig(
     level=logging.INFO,
     format="[%(asctime)s] %(message)s",
@@ -21,7 +21,7 @@ bot = telebot.TeleBot(os.getenv("TOKEN"))
 
 @bot.message_handler(commands=["start"])
 def start(message):
-    z = ", ".join(komars)
+    z = ", ".join(prdxs)
     bot.send_message(message.chat.id, f"Доступные команды: \n{z}, карты, баланс")
 
 
@@ -49,9 +49,9 @@ def anoncment(message):
             )
 
 
-@bot.message_handler(commands=["komar"])
-def komar(message):
-    methods.generate_komar(message, bot)
+@bot.message_handler(commands=["prdx"])
+def prdx(message):
+    methods.generate_prdx(message, bot)
 
 
 @bot.message_handler(commands=["cards"])
@@ -70,8 +70,8 @@ def balance(message):
 
 @bot.message_handler(content_types=["text"])
 def text(message):
-    if message.text.lower() in komars:
-        methods.generate_komar(message, bot)
+    if message.text.lower() in prdxs:
+        methods.generate_prdx(message, bot)
 
     if message.text.lower() == "карты":
         markup = methods.generate_markup_cards(message)
