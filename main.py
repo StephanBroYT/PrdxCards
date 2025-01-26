@@ -1,5 +1,6 @@
 ME_ID = 1127025574
-import telebot, methods, logging
+import telebot, methods, logging, asyncio
+import telebot.async_telebot
 import os
 from dotenv import load_dotenv
 
@@ -16,76 +17,80 @@ logging.basicConfig(
     ],
 )
 
-bot = telebot.TeleBot(os.getenv("TOKEN"))
+bot = telebot.async_telebot.AsyncTeleBot(os.getenv("TOKEN"))
 
 
 @bot.message_handler(commands=["start"])
-def start(message):
+async def start(message):
     z = ", ".join(prdxs)
-    bot.send_message(message.chat.id, f"Доступные команды: \n{z}, карты, баланс")
+    await bot.send_message(message.chat.id, f"Доступные команды: \n{z}, карты, баланс")
 
 
 @bot.message_handler(commands=["anoncment"])
-def anoncment(message):
+async def anoncment(message):
     if message.from_user.id != ME_ID:
         if message.from_user.id == 1472118418 or message.from_user.id == 7767572246:
-            bot.send_message(message.from_user.id, "Мурчиков iдi нахуй")
+            await bot.send_message(message.from_user.id, "Мурчиков iдi нахуй")
             return
         else:
-            bot.send_message(message.from_user.id, "Ты кто?")
+            await bot.send_message(message.from_user.id, "Ты кто?")
             return
 
     users = methods.get_users_id()
     text = message.text.replace("/anoncment", "").strip()
     if not text:
-        bot.send_message(message.from_user.id, "Введите текст для рассылки")
+        await bot.send_message(message.from_user.id, "Введите текст для рассылки")
     for user in users:
         try:
-            bot.send_message(user, text)
+            await bot.send_message(user, text)
         except Exception as e:
             logging.error(f"Error anoncment {e}")
-            bot.send_message(
+            await bot.send_message(
                 message.from_user.id, f"Ошибка при отправке сообщения {e} \nЮзер {user}"
             )
 
 
 @bot.message_handler(commands=["prdx"])
-def prdx(message):
-    methods.generate_prdx(message, bot)
+async def prdx(message):
+    await methods.generate_prdx(message, bot)
 
 
 @bot.message_handler(commands=["cards"])
-def cards(message):
-    markup = methods.generate_markup_cards(message)
-    bot.send_message(message.chat.id, f"✨ Выберите карточку:", reply_markup=markup)
+async def cards(message):
+    markup = await methods.generate_markup_cards(message)
+    await bot.send_message(message.chat.id, f"✨ Выберите карточку:", reply_markup=markup)
 
 
 @bot.message_handler(commands=["balance"])
-def balance(message):
-    bot.send_message(
+async def balance(message):
+    money = await methods.get_user_money(message.from_user.id)
+    money = money[0]
+    await bot.send_message(
         message.chat.id,
-        f"Ваши монеты: {methods.get_user_money(message.from_user.id)[0]}",
+        f"Ваши монеты: {money}",
     )
 
 
 @bot.message_handler(content_types=["text"])
-def text(message):
+async def text(message):
     if message.text.lower() in prdxs:
-        methods.generate_prdx(message, bot)
+        await methods.generate_prdx(message, bot)
 
     if message.text.lower() == "карты":
-        markup = methods.generate_markup_cards(message)
-        bot.send_message(message.chat.id, f"✨ Выберите карточку:", reply_markup=markup)
+        markup = await methods.generate_markup_cards(message)
+        await bot.send_message(message.chat.id, f"✨ Выберите карточку:", reply_markup=markup)
 
     if message.text.lower() == "баланс":
-        bot.send_message(
+        money = await methods.get_user_money(message.from_user.id)
+        money = money[0]
+        await bot.send_message(
             message.chat.id,
-            f"Ваши монеты: {methods.get_user_money(message.from_user.id)[0]}",
+            f"Ваши монеты: {money}",
         )
 
 
 @bot.callback_query_handler(func=lambda callback: True)
-def callback_message(callback):
+async def callback_message(callback):
     if callback.data.startswith("card_"):
         data = callback.data.split("_")
         card_id = int(data[1])
@@ -93,10 +98,10 @@ def callback_message(callback):
 
         # Проверяем пользователя
         if callback.from_user.id != user_id:
-            bot.answer_callback_query(callback.id, text="Это не ваша кнопка")
+            await bot.answer_callback_query(callback.id, text="Это не ваша кнопка")
             return
 
-        card = methods.get_card_by_id(card_id)
+        card = await methods.get_card_by_id(card_id)
         markup = telebot.types.InlineKeyboardMarkup()
 
         name = card.get("name")
@@ -111,7 +116,7 @@ def callback_message(callback):
             )
         )
 
-        bot.edit_message_media(
+        await bot.edit_message_media(
             chat_id=callback.message.chat.id,
             media=telebot.types.InputMediaPhoto(
                 media=open(img, "rb"),
@@ -121,19 +126,22 @@ def callback_message(callback):
             reply_markup=markup,
         )
     if callback.data == "back":
-        markup = methods.generate_markup_cards(callback)
-        bot.delete_message(
+        markup = await methods.generate_markup_cards(callback)
+        await bot.delete_message(
             chat_id=callback.message.chat.id, message_id=callback.message.message_id
         )
-        bot.send_message(
+        await bot.send_message(
             chat_id=callback.message.chat.id,
             text="Выберите карточку:",
             reply_markup=markup,
         )
+async def run():
+    name = await bot.get_my_name()
+    name = name.name
+    logging.info(f"loggined as {name}")
+    await bot.polling()
 
 
-logging.info(f"loggined as {bot.get_my_name().name}")
-
-bot.polling()
+asyncio.run(run())
 
 logging.info("Bot stopped")

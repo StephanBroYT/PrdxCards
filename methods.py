@@ -4,6 +4,7 @@ import telebot
 import random
 import logging
 import datetime
+import asyncio
 
 def setup_database():
     conn = sqlite3.connect("prdx.db")
@@ -37,7 +38,7 @@ def setup_database():
 
 setup_database()
 
-def check_cooldown(user_id: int) -> tuple[bool, str]:
+async def check_cooldown(user_id: int) -> tuple[bool, str]:
     conn = sqlite3.connect("prdx.db")
     c = conn.cursor()
     
@@ -70,13 +71,14 @@ def check_cooldown(user_id: int) -> tuple[bool, str]:
     conn.close()
     return True, ""
 
-def add_card_to_user(user_id: int, card_id: int) -> bool:
+async def add_card_to_user(user_id: int, card_id: int) -> bool:
     """Добавляет карточку пользователю"""
     try:
         conn = sqlite3.connect("prdx.db")
         c = conn.cursor()
 
-        money = get_card_by_id(card_id).get("money", 0)
+        money = await get_card_by_id(card_id)
+        money = money.get("money", 0)
         c.execute(
             "INSERT OR IGNORE INTO users (user_id, money) VALUES (?, ?)",
             (user_id, money),
@@ -99,7 +101,7 @@ def add_card_to_user(user_id: int, card_id: int) -> bool:
         return False
 
 
-def get_user_cards(user_id: int) -> list:
+async def get_user_cards(user_id: int) -> list:
     """Возвращает список ID карточек пользователя"""
     try:
         with sqlite3.connect("prdx.db") as conn:
@@ -111,7 +113,7 @@ def get_user_cards(user_id: int) -> list:
         return []
 
 
-def get_user_money(user_id: int) -> list:
+async def get_user_money(user_id: int) -> list:
     """Возвращает список ID карточек пользователя"""
     try:
         with sqlite3.connect("prdx.db") as conn:
@@ -123,7 +125,7 @@ def get_user_money(user_id: int) -> list:
         return []
 
 
-def get_users_id() -> list:
+async def get_users_id() -> list:
     """Возвращает список ID пользователей"""
     try:
         with sqlite3.connect("prdx.db") as conn:
@@ -135,7 +137,7 @@ def get_users_id() -> list:
         return []
 
 
-def get_cards() -> list:
+async def get_cards() -> list:
     """Возвращает список всех карточек"""
     try:
         with open("komars.json", "r", encoding="UTF-8") as file:
@@ -146,7 +148,7 @@ def get_cards() -> list:
         return {}
 
 
-def get_card_by_id(card_id: str) -> dict:
+async def get_card_by_id(card_id: str) -> dict:
     """Возвращает информацию о карточке по её ID из JSON файла"""
     try:
         with open("komars.json", "r", encoding="UTF-8") as file:
@@ -157,11 +159,11 @@ def get_card_by_id(card_id: str) -> dict:
         return {}
 
 
-def generate_markup_cards(message):
+async def generate_markup_cards(message):
     markup = telebot.types.InlineKeyboardMarkup()
 
-    for i in get_user_cards(message.from_user.id):
-        card = get_card_by_id(i)
+    for i in await get_user_cards(message.from_user.id):
+        card = await get_card_by_id(i)
         markup.add(
             telebot.types.InlineKeyboardButton(
                 text=f"{card.get('name')} {card.get('rare')}",
@@ -171,15 +173,15 @@ def generate_markup_cards(message):
     return markup
 
 
-def generate_prdx(message, bot):
+async def generate_prdx(message, bot):
     try:
-        can_use, time_left = check_cooldown(message.from_user.id)
+        can_use, time_left = await check_cooldown(message.from_user.id)
         if not can_use:
-            bot.reply_to(message, f"🕖 Вы не смогли найти КОМАРА, попробуйте через {time_left}")
+            await bot.reply_to(message, f"🕖 Вы не смогли найти КОМАРА, попробуйте через {time_left}")
             return
 
-        komar_id = random.choice(list(get_cards()))
-        komar_data = get_card_by_id(komar_id)
+        komar_id = random.choice(list(await get_cards()))
+        komar_data = await get_card_by_id(komar_id)
 
         name = komar_data.get("name")
         rare = komar_data.get("rare")
@@ -187,28 +189,26 @@ def generate_prdx(message, bot):
         img = komar_data.get("img")
 
         # logging.info(f"id:{komar_id} data:{komar_data}")
-        cards = get_user_cards(message.from_user.id)
+        cards = await get_user_cards(message.from_user.id)
         # logging.info(komar_id, cards)
         dupe = int(komar_id) in cards
         
-        add_card_to_user(message.from_user.id, komar_id)
+        await add_card_to_user(message.from_user.id, komar_id)
 
         if dupe:
-            bot.send_photo(
+            await bot.send_photo(
             chat_id=message.chat.id,
             photo=open(img, "rb"),
             caption=f"🚀 Вам *повторно* выпала карточка {name} \n💎 Редкость • {rare} \n💰 Вам добавлено {money} монет \n||ID: {komar_id}||",
             parse_mode="MarkdownV2",
         )
         else:
-            bot.send_photo(
+            await bot.send_photo(
             chat_id=message.chat.id,
             photo=open(img, "rb"),
             caption=f"🚀 Вам выпала карточка {name} \n💎 Редкость • {rare} \n💰 Вам добавлено {money} монет \n||ID: {komar_id}||",
             parse_mode="MarkdownV2",
         )
-
-
 
     except Exception as e:
         logging.error(f"Error {e}")
